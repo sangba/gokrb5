@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"os"
+	"io/ioutil"
 	"strings"
 	"time"
 	"unsafe"
@@ -63,7 +63,7 @@ type Credential struct {
 // LoadCCache loads a credential cache file into a CCache type.
 func LoadCCache(cpath string) (*CCache, error) {
 	c := new(CCache)
-	b, err := os.ReadFile(cpath)
+	b, err := ioutil.ReadFile(cpath)
 	if err != nil {
 		return c, err
 	}
@@ -74,19 +74,19 @@ func LoadCCache(cpath string) (*CCache, error) {
 // Unmarshal a byte slice of credential cache data into CCache type.
 func (c *CCache) Unmarshal(b []byte) error {
 	p := 0
-	//The first byte of the file always has the value 5
+	// The first byte of the file always has the value 5
 	if int8(b[p]) != 5 {
 		return errors.New("Invalid credential cache data. First byte does not equal 5")
 	}
 	p++
-	//Get credential cache version
-	//The second byte contains the version number (1 to 4)
+	// Get credential cache version
+	// The second byte contains the version number (1 to 4)
 	c.Version = b[p]
 	if c.Version < 1 || c.Version > 4 {
 		return errors.New("Invalid credential cache data. Keytab version is not within 1 to 4")
 	}
 	p++
-	//Version 1 or 2 of the file format uses native byte order for integer representations. Versions 3 & 4 always uses big-endian byte order
+	// Version 1 or 2 of the file format uses native byte order for integer representations. Versions 3 & 4 always uses big-endian byte order
 	var endian binary.ByteOrder
 	endian = binary.BigEndian
 	if (c.Version == 1 || c.Version == 2) && isNativeEndianLittle() {
@@ -133,12 +133,12 @@ func parseHeader(b []byte, p *int, c *CCache, e *binary.ByteOrder) error {
 // Parse the Keytab bytes of a principal into a Keytab entry's principal.
 func parsePrincipal(b []byte, p *int, c *CCache, e *binary.ByteOrder) (princ principal) {
 	if c.Version != 1 {
-		//Name Type is omitted in version 1
+		// Name Type is omitted in version 1
 		princ.PrincipalName.NameType = readInt32(b, p, e)
 	}
 	nc := int(readInt32(b, p, e))
 	if c.Version == 1 {
-		//In version 1 the number of components includes the realm. Minus 1 to make consistent with version 2
+		// In version 1 the number of components includes the realm. Minus 1 to make consistent with version 2
 		nc--
 	}
 	lenRealm := readInt32(b, p, e)
@@ -157,7 +157,7 @@ func parseCredential(b []byte, p *int, c *CCache, e *binary.ByteOrder) (cred *Cr
 	key := types.EncryptionKey{}
 	key.KeyType = int32(readInt16(b, p, e))
 	if c.Version == 3 {
-		//repeated twice in version 3
+		// repeated twice in version 3
 		key.KeyType = int32(readInt16(b, p, e))
 	}
 	key.KeyValue = readData(b, p, e)
